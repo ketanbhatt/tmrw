@@ -1,0 +1,33 @@
+*.py[cod]
+*.log
+*.pot
+
+# Unit test / coverage reports
+.coverage
+.tox
+
+# Translations
+*.mo
+
+# Developer
+.pydevproject
+.project
+.settings/
+.idea/
+.DS_Store
+*~
+*-local.scss
+
+# Celery Beat
+celerybeat-schedule
+celerybeat.pid
+
+# locals
+static-tmp
+media
+*.sqlite3
+.env
+local.py
+.sass-cache
+data/
+*.ipynb
