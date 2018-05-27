@@ -34,3 +34,11 @@ Roughly:
 ## Current Status
 At the moment, things mentioned in [this issue](https://github.com/ketanbhatt/tmrw/issues/1) are done. This is just a proof of concept for now and therefore I haven't spent a lot of time following best practices.
 I am going to keep on adding featuers as I use this more.
+
+#### Admin views:
+![General Tab](img/v1_general.png)
+
+![Journal Tab](img/v1_journal.png)
+
+#### Basic HTML Render of the Day
+![Basic HTML Render](img/v1_html_render.png)
