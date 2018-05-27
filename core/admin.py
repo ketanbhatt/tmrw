@@ -1,11 +1,12 @@
 from django.contrib import admin
+from nested_admin.nested import NestedStackedInline, NestedModelAdmin, NestedTabularInline
 from suit.admin import SortableStackedInline
 
 from common.admin import CommonAdminMixin
 from core.forms import DayEntryForm, ScrumEntryForm, JournalEntryForm, JournalEntryTemplateForm
 from core.formsets import ScrumEntryInlineFormSet, JournalEntryInlineFormSet
 from core.models import DayEntry, JournalEntry, ScrumEntry, Tag, DayEntryTagStat, JournalEntryTemplate, \
-    RepeatingScrumEntry
+    RepeatingScrumEntry, StartEndTimeLog, ManualTimeLog
 
 
 class RepeatingScrumEntryAdmin(CommonAdminMixin, admin.ModelAdmin):
@@ -22,17 +23,31 @@ class JournalEntryTemplateAdmin(CommonAdminMixin, admin.ModelAdmin):
     autocomplete_fields = ['tags']
 
 
-class ScrumEntryInline(CommonAdminMixin, SortableStackedInline):
+class StartEndTimeLogNestedInline(CommonAdminMixin, NestedTabularInline):
+    model = StartEndTimeLog
+    fields = ('soft_delete', 'start_time', 'end_time')
+    extra = 1
+
+
+class ManualTimeLogNestedInline(CommonAdminMixin, NestedTabularInline):
+    model = ManualTimeLog
+    fields = ('soft_delete', 'duration')
+    extra = 1
+
+
+class ScrumEntryInline(CommonAdminMixin, NestedStackedInline):
     model = ScrumEntry
     form = ScrumEntryForm
     formset = ScrumEntryInlineFormSet
 
     suit_classes = 'suit-tab suit-tab-scrum'
-    sortable = 'order'
+    sortable_field_name = 'order'
 
-    fields = ['title', 'notes', 'tags', 'final_status', 'created_at', 'soft_delete']
+    fields = ['title', 'notes', 'tags', 'final_status', 'created_at', 'soft_delete', 'order']
     readonly_fields = CommonAdminMixin.common_readonly
     autocomplete_fields = ['tags']
+
+    inlines = (StartEndTimeLogNestedInline, ManualTimeLogNestedInline)
 
     def get_extra(self, request, obj=None, **kwargs):
         if obj is None:
@@ -66,11 +81,13 @@ class DayEntryTagStatInline(CommonAdminMixin, admin.TabularInline):
     suit_classes = 'suit-tab suit-tab-general'
     extra = 0
 
+    readonly_fields = ['tag', 'time_logged']
+
     def has_add_permission(self, request):
         return False
 
 
-class DayEntryAdmin(CommonAdminMixin, admin.ModelAdmin):
+class DayEntryAdmin(CommonAdminMixin, NestedModelAdmin):
     form = DayEntryForm
     inlines = (JournalEntryInline, ScrumEntryInline, DayEntryTagStatInline)
     ordering = ('record_date',)
@@ -91,6 +108,7 @@ class DayEntryAdmin(CommonAdminMixin, admin.ModelAdmin):
     suit_form_tabs = (('general', 'General'), ('scrum', 'Scrum'), ('journal', 'Journal'))
     readonly_fields = ('time_logged',) + CommonAdminMixin.common_readonly
     autocomplete_fields = ['tags']
+    change_form_template = 'admin/dayentry/change_form.html'
 
 
 class TagAdmin(CommonAdminMixin, admin.ModelAdmin):

@@ -1,7 +1,10 @@
 import datetime
+from collections import defaultdict
 
+from bulk_update.helper import bulk_update
 from django.core.validators import MaxValueValidator
-from django.db import models
+from django.db import models, transaction
+from django.db.models import Prefetch
 
 from common.models import CommonInfoAbstractModel
 
@@ -30,6 +33,93 @@ class DayEntry(CommonInfoAbstractModel):
     def __str__(self):
         return "DayEntry: {}".format(self.record_date)
 
+    def save(self, *args, **kwargs):
+        tagged_time = None
+
+        if self.pk:
+            time_logged, tagged_time = self.get_total_and_tagged_time()
+            self.time_logged = time_logged
+
+        super(DayEntry, self).save(*args, **kwargs)
+
+        if tagged_time:
+            DayEntryTagStat.create_tag_stats_for_day_entry(self.pk, tagged_time)
+
+    def get_total_and_tagged_time(self):
+        day_entry = DayEntry.objects.prefetch_related(
+            Prefetch(
+                'scrumentry_set',
+                queryset=ScrumEntry.active_qs().prefetch_related('tags').prefetch_related(
+                    Prefetch('startendtimelog_set', StartEndTimeLog.active_qs(), to_attr='start_end_time_logs'),
+                    Prefetch('manualtimelog_set', ManualTimeLog.active_qs(), to_attr='manual_time_logs')
+                ),
+                to_attr='scrum_entries'
+            )
+        ).get(id=self.id)
+
+        total_time, tagged_time = 0, defaultdict(int)
+        for scrum_entry in day_entry.scrum_entries:
+            logged_time = ScrumEntry.get_logged_time(scrum_entry.start_end_time_logs, scrum_entry.manual_time_logs)
+
+            for tag in scrum_entry.tags.all():
+                tagged_time[tag.id] += logged_time
+            total_time += logged_time
+
+        return total_time, tagged_time
+
+
+    @classmethod
+    def get_full_context(cls, day_entry_id):
+        day_entry = cls.objects.prefetch_related(
+            'tags',
+            Prefetch(
+                'journalentry_set',
+                queryset=JournalEntry.active_qs().order_by('order').prefetch_related('tags'),
+                to_attr='journal_entries'
+            ),
+            Prefetch(
+                'scrumentry_set',
+                queryset=ScrumEntry.active_qs().order_by('order').prefetch_related('tags').prefetch_related(
+                    Prefetch('startendtimelog_set', StartEndTimeLog.active_qs(), to_attr='start_end_time_logs'),
+                    Prefetch('manualtimelog_set', ManualTimeLog.active_qs(), to_attr='manual_time_logs')
+                ),
+                to_attr='scrum_entries'
+            )
+        ).get(id=day_entry_id)
+
+        context = {
+            "record_date_str": "{}".format(day_entry.record_date),
+            "day_summary": day_entry.day_summary,
+            "scrum_summary": day_entry.scrum_summary,
+            "day_time_logged_str": "{} minutes".format(day_entry.time_logged or 0),
+            "day_tags_str": " ".join(["#{}".format(tag.name) for tag in day_entry.tags.all()])
+        }
+
+        scrum_entries = []
+        for scrum_entry in day_entry.scrum_entries:
+            scrum_entries.append({
+                "title": scrum_entry.title,
+                "notes": scrum_entry.notes,
+                "final_status": ScrumEntry.FINAL_STATUS_CHOICES_DICT[scrum_entry.final_status],
+                "tags_str": " ".join(["#{}".format(tag.name) for tag in scrum_entry.tags.all()]),
+                "time_logged_str": "{:.0f} minutes".format(
+                    ScrumEntry.get_logged_time(scrum_entry.start_end_time_logs, scrum_entry.manual_time_logs)
+                )
+            })
+
+        journal_entries = []
+        for journal_entry in day_entry.journal_entries:
+            journal_entries.append({
+                "title": journal_entry.title,
+                "response": journal_entry.response,
+                "tags_str": " ".join(["#{}".format(tag.name) for tag in journal_entry.tags.all()])
+            })
+
+        context['scrum_entries'] = scrum_entries
+        context['journal_entries'] = journal_entries
+
+        return context
+
 
 class DayEntryTagStat(models.Model):
     day_entry = models.ForeignKey(DayEntry, on_delete=models.CASCADE)
@@ -38,6 +128,25 @@ class DayEntryTagStat(models.Model):
         validators=[MaxValueValidator(60 * 24, message="You can't log more than 24 hours in a day")],
         help_text="Total time logged in the day, for the tag, in minutes"
     )
+
+    class Meta:
+        unique_together = (('day_entry', 'tag'),)
+
+    @classmethod
+    def create_tag_stats_for_day_entry(cls, day_entry_id, tagged_time):
+        stats_to_update = cls.objects.filter(day_entry_id=day_entry_id, tag_id__in=tagged_time.keys())
+
+        for stat in stats_to_update:
+            stat.time_logged = tagged_time.pop(stat.tag_id)
+
+        stats_to_create = [
+            cls(day_entry_id=day_entry_id, tag_id=tag_id, time_logged=logged_time)
+            for tag_id, logged_time in tagged_time.items()
+        ]
+
+        with transaction.atomic():
+            bulk_update(stats_to_update, update_fields=['time_logged'])
+            cls.objects.bulk_create(stats_to_create)
 
 
 class JournalEntryTemplate(CommonInfoAbstractModel):
@@ -54,7 +163,6 @@ class JournalEntryTemplate(CommonInfoAbstractModel):
 
 class JournalEntry(CommonInfoAbstractModel):
     day_entry = models.ForeignKey(DayEntry, on_delete=models.CASCADE)
-    template = models.ForeignKey(JournalEntryTemplate, on_delete=models.CASCADE)
     title = models.CharField(max_length=128)
     response = models.TextField(null=True, blank=True)
     order = models.PositiveSmallIntegerField()
@@ -89,8 +197,10 @@ class ScrumEntry(CommonInfoAbstractModel):
         (FINAL_STATUS_DROPPED, "Dropped")
     )
 
+    FINAL_STATUS_CHOICES_DICT = dict(FINAL_STATUS_CHOICES)
+    FINAL_STATUS_CHOICES_DICT[None] = ""
+
     day_entry = models.ForeignKey(DayEntry, on_delete=models.CASCADE)
-    repeated_scrum_entry = models.ForeignKey(RepeatingScrumEntry, null=True, blank=True, on_delete=models.CASCADE)
     title = models.CharField(max_length=128, help_text="What task do you have to do?")
     notes = models.TextField(null=True, blank=True)
     final_status = models.PositiveSmallIntegerField(choices=FINAL_STATUS_CHOICES, null=True, blank=True)
@@ -102,6 +212,28 @@ class ScrumEntry(CommonInfoAbstractModel):
 
     def __str__(self):
         return "<{}: {}>".format(self.__class__.__name__, self.title)
+
+    @classmethod
+    def get_logged_time(cls, start_end_time_logs, manual_time_logs):
+        now = datetime.datetime.now()
+
+        time_logged = sum([log.duration for log in manual_time_logs])
+
+        time_logged += sum(
+            [
+                (
+                        now.replace(
+                            hour=log.end_time.hour, minute=log.end_time.minute, second=log.end_time.second
+                        )
+                        -
+                        now.replace(
+                            hour=log.start_time.hour, minute=log.start_time.minute, second=log.start_time.second
+                        )
+                ).total_seconds() / 60 for log in start_end_time_logs
+            ]
+        )
+
+        return time_logged
 
 
 class StartEndTimeLog(CommonInfoAbstractModel):

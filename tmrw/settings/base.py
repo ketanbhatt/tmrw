@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 
     'suit_redactor',
     'django_select2',
+    'nested_admin',
 
     'core',
     'common',

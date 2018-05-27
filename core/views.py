@@ -1,3 +1,8 @@
 from django.shortcuts import render
 
-# Create your views here.
+from core.models import DayEntry
+
+
+def day_entry_html(request, day_entry_id):
+    context = DayEntry.get_full_context(day_entry_id)
+    return render(request, 'day_entry.html', context)
