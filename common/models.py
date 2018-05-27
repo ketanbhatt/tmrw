@@ -9,3 +9,7 @@ class CommonInfoAbstractModel(models.Model):
 
     class Meta:
         abstract = True
+
+    @classmethod
+    def active_qs(cls):
+        return cls.objects.filter(soft_delete=False)
