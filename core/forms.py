@@ -23,6 +23,10 @@ class ScrumEntryForm(ModelForm):
             'notes': RedactorWidget(editor_options={}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super(ScrumEntryForm, self).__init__(*args, **kwargs)
+        self.fields['order'].widget.attrs.update({'readonly': 'true'})
+
 
 class JournalEntryForm(ModelForm):
     class Meta:
