@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 
 ## 2018-05-28
-## Added
+### Added
 - Display time in "hh:mm hrs" format
 
 ### Changed
