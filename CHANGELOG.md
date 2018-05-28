@@ -1,6 +1,19 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+
+## 2018-05-28
+## Added
+- Display time in "hh:mm hrs" format
+
+### Changed
+- Combined both `StartEndTimeLog` and `ManualTimeLog` in one model
+- Made `order` readonly on `ScrumEntry`
+
+### Fixed
+- Fixed bug where Day Entry has to be saved twice to calculate total time logged
+
+
 ## 2018-05-27
 ### Added
 - Add Scrum and log time for each task

@@ -2,11 +2,13 @@ import datetime
 from collections import defaultdict
 
 from bulk_update.helper import bulk_update
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
 from django.db import models, transaction
 from django.db.models import Prefetch
 
 from common.models import CommonInfoAbstractModel
+from common.utils import get_humanised_time_str
 
 
 class Tag(CommonInfoAbstractModel):
@@ -33,40 +35,36 @@ class DayEntry(CommonInfoAbstractModel):
     def __str__(self):
         return "DayEntry: {}".format(self.record_date)
 
-    def save(self, *args, **kwargs):
-        tagged_time = None
+    @classmethod
+    def update_time_logged_for_day(cls, day_entry_id):
+        time_logged, tagged_time = cls.get_total_and_tagged_time(day_entry_id)
 
-        if self.pk:
-            time_logged, tagged_time = self.get_total_and_tagged_time()
-            self.time_logged = time_logged
-
-        super(DayEntry, self).save(*args, **kwargs)
+        cls.objects.filter(id=day_entry_id).update(time_logged=time_logged)
 
         if tagged_time:
-            DayEntryTagStat.create_tag_stats_for_day_entry(self.pk, tagged_time)
+            DayEntryTagStat.create_tag_stats_for_day_entry(day_entry_id, tagged_time)
 
-    def get_total_and_tagged_time(self):
-        day_entry = DayEntry.objects.prefetch_related(
+    @classmethod
+    def get_total_and_tagged_time(cls, day_entry_id):
+        day_entry = cls.objects.prefetch_related(
             Prefetch(
                 'scrumentry_set',
                 queryset=ScrumEntry.active_qs().prefetch_related('tags').prefetch_related(
-                    Prefetch('startendtimelog_set', StartEndTimeLog.active_qs(), to_attr='start_end_time_logs'),
-                    Prefetch('manualtimelog_set', ManualTimeLog.active_qs(), to_attr='manual_time_logs')
+                    Prefetch('timelog_set', TimeLog.active_qs().filter(duration__isnull=False), to_attr='time_logs'),
                 ),
                 to_attr='scrum_entries'
             )
-        ).get(id=self.id)
+        ).get(id=day_entry_id)
 
         total_time, tagged_time = 0, defaultdict(int)
         for scrum_entry in day_entry.scrum_entries:
-            logged_time = ScrumEntry.get_logged_time(scrum_entry.start_end_time_logs, scrum_entry.manual_time_logs)
+            logged_time = sum([log.duration for log in scrum_entry.time_logs])
 
             for tag in scrum_entry.tags.all():
                 tagged_time[tag.id] += logged_time
             total_time += logged_time
 
         return total_time, tagged_time
-
 
     @classmethod
     def get_full_context(cls, day_entry_id):
@@ -80,8 +78,7 @@ class DayEntry(CommonInfoAbstractModel):
             Prefetch(
                 'scrumentry_set',
                 queryset=ScrumEntry.active_qs().order_by('order').prefetch_related('tags').prefetch_related(
-                    Prefetch('startendtimelog_set', StartEndTimeLog.active_qs(), to_attr='start_end_time_logs'),
-                    Prefetch('manualtimelog_set', ManualTimeLog.active_qs(), to_attr='manual_time_logs')
+                    Prefetch('timelog_set', TimeLog.active_qs().filter(duration__isnull=False), to_attr='time_logs'),
                 ),
                 to_attr='scrum_entries'
             )
@@ -91,7 +88,7 @@ class DayEntry(CommonInfoAbstractModel):
             "record_date_str": "{}".format(day_entry.record_date),
             "day_summary": day_entry.day_summary,
             "scrum_summary": day_entry.scrum_summary,
-            "day_time_logged_str": "{} minutes".format(day_entry.time_logged or 0),
+            "day_time_logged_str": get_humanised_time_str(day_entry.time_logged or 0),
             "day_tags_str": " ".join(["#{}".format(tag.name) for tag in day_entry.tags.all()])
         }
 
@@ -102,9 +99,7 @@ class DayEntry(CommonInfoAbstractModel):
                 "notes": scrum_entry.notes,
                 "final_status": ScrumEntry.FINAL_STATUS_CHOICES_DICT[scrum_entry.final_status],
                 "tags_str": " ".join(["#{}".format(tag.name) for tag in scrum_entry.tags.all()]),
-                "time_logged_str": "{:.0f} minutes".format(
-                    ScrumEntry.get_logged_time(scrum_entry.start_end_time_logs, scrum_entry.manual_time_logs)
-                )
+                "time_logged_str": get_humanised_time_str(sum([log.duration for log in scrum_entry.time_logs]))
             })
 
         journal_entries = []
@@ -213,38 +208,32 @@ class ScrumEntry(CommonInfoAbstractModel):
     def __str__(self):
         return "<{}: {}>".format(self.__class__.__name__, self.title)
 
-    @classmethod
-    def get_logged_time(cls, start_end_time_logs, manual_time_logs):
-        now = datetime.datetime.now()
 
-        time_logged = sum([log.duration for log in manual_time_logs])
-
-        time_logged += sum(
-            [
-                (
-                        now.replace(
-                            hour=log.end_time.hour, minute=log.end_time.minute, second=log.end_time.second
-                        )
-                        -
-                        now.replace(
-                            hour=log.start_time.hour, minute=log.start_time.minute, second=log.start_time.second
-                        )
-                ).total_seconds() / 60 for log in start_end_time_logs
-            ]
-        )
-
-        return time_logged
-
-
-class StartEndTimeLog(CommonInfoAbstractModel):
+class TimeLog(CommonInfoAbstractModel):
     scrum_entry = models.ForeignKey(ScrumEntry, on_delete=models.CASCADE)
-    start_time = models.TimeField()
-    end_time = models.TimeField()
-
-
-class ManualTimeLog(CommonInfoAbstractModel):
-    scrum_entry = models.ForeignKey(ScrumEntry, on_delete=models.CASCADE)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
     duration = models.PositiveSmallIntegerField(
+        null=True, blank=True,
         validators=[MaxValueValidator(60*24, message="You can't log more than 24 hours in a day")],
         help_text="Time in minutes"
     )
+
+    def save(self, *args, **kwargs):
+        if self.start_time and self.end_time:
+            now = datetime.datetime.now()
+            self.duration = (
+                    now.replace(
+                        hour=self.end_time.hour, minute=self.end_time.minute, second=self.end_time.second
+                    )
+                    -
+                    now.replace(
+                        hour=self.start_time.hour, minute=self.start_time.minute, second=self.start_time.second
+                    )
+            ).total_seconds() / 60
+
+        super(TimeLog, self).save(*args, **kwargs)
+
+    def clean(self):
+        if not any([self.start_time, self.end_time, self.duration]):
+            raise ValidationError("One of start_time, end_time or duration should be updated")
