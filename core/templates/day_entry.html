@@ -7,9 +7,11 @@
 <body>
 <h2>Day Entry: {{ record_date_str }}</h2>
 
-<p>Time Logged: {{ day_time_logged_str }}</p>
-
-<p>Tags: <span style="color:#696969;"><em>{{ day_tags_str }}</em></span></p>
+<p>
+    Time Logged: {{ day_time_logged_str }}
+    <br>
+    Tags: <span style="color:#696969;"><em>{{ day_tags_str }}</em></span>
+</p>
 
 
 <h2>Scrum:</h2>
@@ -37,8 +39,7 @@
     <ol>
         {% for scrum_entry in scrum_entries %}
         <li>
-            <h5>{{ scrum_entry.title }}</h5>
-            <p><em style="color: rgb(105, 105, 105);">{{ scrum_entry.tags_str }}</em></p>
+            {{ scrum_entry.title }} <em style="color: rgb(105, 105, 105);">{{ scrum_entry.tags_str }}</em>
             <p>
                 {% autoescape off %}
                 {{ scrum_entry.notes }}
@@ -62,8 +63,7 @@
     <ol>
         {% for journal_entry in journal_entries %}
         <li>
-            <h5>{{ journal_entry.title }}</h5>
-            <p><em style="color: rgb(105, 105, 105);">{{ journal_entry.tags_str }}</em></p>
+            {{ journal_entry.title }} <em style="color: rgb(105, 105, 105);">{{ journal_entry.tags_str }}</em>
             <p>
                 {% autoescape off %}
                 {{ journal_entry.response }}

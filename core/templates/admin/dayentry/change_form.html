@@ -9,3 +9,32 @@
          </a>
     </li>
 {% endblock %}
+
+{% block admin_change_form_document_ready %}
+    {{ block.super }}
+    {% if object_id %}
+        <script>
+            console.log("Setting up AutoSave");
+
+            var idleTime = 0;
+            //Increment the idle time counter every minute.
+            var idleInterval = setInterval(timerIncrement, 15000); // 15 seconds
+
+            //Zero the idle timer on mouse movement.
+            $(this).mousemove(function (e) {
+                idleTime = 0;
+            });
+            $(this).keypress(function (e) {
+                idleTime = 0;
+            });
+
+            function timerIncrement() {
+                idleTime = idleTime + 1;
+                console.log("Idle Time:", idleTime, "cycles");
+                if (idleTime == 4) { // 1 minute
+                    document.getElementsByName('_continue')[0].click()
+                }
+            }
+        </script>
+    {% endif %}
+{% endblock %}
