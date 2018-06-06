@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
 from django.db import models, transaction
 from django.db.models import Prefetch
+from django.utils.safestring import mark_safe
 
 from common.models import CommonInfoAbstractModel
 from common.utils import get_humanised_time_str
@@ -97,7 +98,7 @@ class DayEntry(CommonInfoAbstractModel):
             scrum_entries.append({
                 "title": scrum_entry.title,
                 "notes": scrum_entry.notes,
-                "final_status": ScrumEntry.FINAL_STATUS_CHOICES_DICT[scrum_entry.final_status],
+                "final_status": scrum_entry.get_final_status_html(),
                 "tags_str": " ".join(["#{}".format(tag.name) for tag in scrum_entry.tags.all()]),
                 "time_logged_str": get_humanised_time_str(sum([log.duration for log in scrum_entry.time_logs]))
             })
@@ -195,6 +196,13 @@ class ScrumEntry(CommonInfoAbstractModel):
     FINAL_STATUS_CHOICES_DICT = dict(FINAL_STATUS_CHOICES)
     FINAL_STATUS_CHOICES_DICT[None] = ""
 
+    FINAL_STATUS_COLORS = {
+        FINAL_STATUS_COMPLETED: 'green',
+        FINAL_STATUS_INCOMPLETE: 'red',
+        FINAL_STATUS_DROPPED: 'orange',
+        None: ''
+    }
+
     day_entry = models.ForeignKey(DayEntry, on_delete=models.CASCADE)
     title = models.CharField(max_length=128, help_text="What task do you have to do?")
     notes = models.TextField(null=True, blank=True)
@@ -207,6 +215,12 @@ class ScrumEntry(CommonInfoAbstractModel):
 
     def __str__(self):
         return "<{}: {}>".format(self.__class__.__name__, self.title)
+
+    def get_final_status_html(self):
+        status = ScrumEntry.FINAL_STATUS_CHOICES_DICT[self.final_status]
+        color = ScrumEntry.FINAL_STATUS_COLORS[self.final_status]
+
+        return mark_safe("<span style='color:{0}'>{1}</span>".format(color, status))
 
 
 class TimeLog(CommonInfoAbstractModel):

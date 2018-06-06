@@ -94,7 +94,8 @@ class DayEntryTagStatInline(CommonAdminMixin, admin.TabularInline):
 class DayEntryAdmin(CommonAdminMixin, NestedModelAdmin):
     form = DayEntryForm
     inlines = (JournalEntryInline, ScrumEntryInline, DayEntryTagStatInline)
-    ordering = ('record_date',)
+    list_display = ('record_date', 'time_logged_str')
+    ordering = ('-record_date',)
 
     fieldsets = [
         (None, {

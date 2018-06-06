@@ -1,6 +1,15 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 2018-06-06
+### Added
+- Autosave if idle for 1 minute
+- Some colors to scrum render
+
+### Fixed
+- Ordering of day entries on the admin
+- Zero padding of minutes
+
 
 ## 2018-05-28
 ### Added
