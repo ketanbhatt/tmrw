@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.html import format_html
 from nested_admin.nested import NestedStackedInline, NestedModelAdmin, NestedTabularInline
 from suit.admin import SortableStackedInline
 
@@ -106,7 +107,7 @@ class ScrumEntryAdmin(CommonAdminMixin, admin.ModelAdmin):
 class DayEntryAdmin(CommonAdminMixin, NestedModelAdmin):
     form = DayEntryForm
     inlines = (JournalEntryInline, ScrumEntryInline, DayEntryTagStatInline)
-    list_display = ('record_date', 'time_logged_str')
+    list_display = ('record_date', 'manage', 'time_logged_str')
     ordering = ('-record_date',)
 
     fieldsets = [
@@ -136,6 +137,12 @@ class DayEntryAdmin(CommonAdminMixin, NestedModelAdmin):
     def time_logged_str(self, obj):
         return get_humanised_time_str(obj.time_logged)
     time_logged_str.short_description = "Time Logged"
+
+    def manage(self, obj):
+        return format_html("<a href={url}>{title}</a>".format(
+            url=reverse('frontend-v1-change-view', args=[obj.id]),
+            title="Manage"
+        ))
 
     def response_post_save_add(self, request, obj):
         return redirect(reverse('frontend-v1-change-view', args=[obj.id]))
