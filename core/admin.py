@@ -91,6 +91,16 @@ class DayEntryTagStatInline(CommonAdminMixin, admin.TabularInline):
     time_logged_str.short_description = "Time Logged"
 
 
+class ScrumEntryAdmin(CommonAdminMixin, admin.ModelAdmin):
+    form = ScrumEntryForm
+
+    fields = ['title', 'notes', 'tags', 'final_status', 'created_at', 'soft_delete', 'order']
+    readonly_fields = CommonAdminMixin.common_readonly
+    autocomplete_fields = ['tags']
+
+    inlines = (TimeLogNestedInline,)
+
+
 class DayEntryAdmin(CommonAdminMixin, NestedModelAdmin):
     form = DayEntryForm
     inlines = (JournalEntryInline, ScrumEntryInline, DayEntryTagStatInline)
@@ -137,6 +147,7 @@ class TagAdmin(CommonAdminMixin, admin.ModelAdmin):
 
 
 admin.site.register(DayEntry, DayEntryAdmin)
+admin.site.register(ScrumEntry, ScrumEntryAdmin)
 admin.site.register(Tag, TagAdmin)
 admin.site.register(JournalEntryTemplate, JournalEntryTemplateAdmin)
 admin.site.register(RepeatingScrumEntry, RepeatingScrumEntryAdmin)

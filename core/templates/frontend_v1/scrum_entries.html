@@ -2,12 +2,14 @@
     {% for entry in scrum_entries %}
         <div 
             class="list-group-item list-group-item-action flex-column align-items-start
-            {% if entry.ongoing_time_log_id %} list-group-item-primary {% endif %}"
+            {% if entry.ongoing_time_log_id %} list-group-item-primary {% endif %}
+            {{ entry.final_status_classes }}"
         >
             <div class="d-flex w-100">
                 <h5 class="mb-1">
+                    <a href={% url "admin:core_scrumentry_change" entry.id %} class="far fa-edit"></a>
                     {{ entry.title }}
-                    <span class="badge badge-success">{{ entry.final_status }}</span>
+                    <span class="badge badge-light">{{ entry.final_status }}</span>
                     <span class="badge badge-light">{{ entry.time_logged_str }}</span>
                 </h5>
             </div>
@@ -27,6 +29,7 @@
                 </div>
                 <div class="input-group my-1 col-sm">
                     <select class="custom-select" id="status-select-{{entry.id}}" aria-label="Status">
+                        <option value="" disabled selected>Select</option>
                         {% for status in statuses %}
                             <option value={{status.0}}>{{status.1}}</option>
                         {% endfor %}

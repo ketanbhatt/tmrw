@@ -85,6 +85,7 @@ class DayEntry(CommonInfoAbstractModel):
                 "id": scrum_entry.id,
                 "title": scrum_entry.title,
                 "final_status": ScrumEntry.FINAL_STATUS_CHOICES_DICT[scrum_entry.final_status],
+                "final_status_classes": ScrumEntry.FINAL_STATUS_BOOTSTRAP_CLASSES[scrum_entry.final_status],
             }
 
             total_time_logged, ongoing_time, ongoing_time_log_id = 0, None, None
@@ -247,6 +248,13 @@ class ScrumEntry(CommonInfoAbstractModel):
         FINAL_STATUS_COMPLETED: 'green',
         FINAL_STATUS_INCOMPLETE: 'red',
         FINAL_STATUS_DROPPED: 'orange',
+        None: ''
+    }
+
+    FINAL_STATUS_BOOTSTRAP_CLASSES = {
+        FINAL_STATUS_COMPLETED: 'list-group-item-success',
+        FINAL_STATUS_INCOMPLETE: 'list-group-item-danger',
+        FINAL_STATUS_DROPPED: 'list-group-item-warning',
         None: ''
     }
 
