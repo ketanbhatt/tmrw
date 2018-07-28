@@ -32,8 +32,11 @@ Roughly:
 7. I keep all my data, forever.
 
 ## Current Status
-At the moment, things mentioned in [this issue](https://github.com/ketanbhatt/tmrw/issues/1) are done. This is just a proof of concept for now and therefore I haven't spent a lot of time following best practices.
-I am going to keep on adding featuers as I use this more.
+I have used the first version for 40+ days now. After making sure I am using it, have added a simple UI to it so that I don't have to scroll a lot for finding my scrum entries. Of course the old Django Admin is still active in use for fine grain control and fixing mistakes.
+
+
+#### New UI
+![Frontend V1](img/frontend_v1.png)
 
 #### Admin views:
 ![General Tab](img/v1_general.png)

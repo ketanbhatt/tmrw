@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 2018-07-28
+### Added
+- *New Frontend for tmrw*
+
+
 ## 2018-06-06
 ### Added
 - Autosave if idle for 1 minute

@@ -7,7 +7,7 @@
         >
             <div class="d-flex w-100">
                 <h5 class="mb-1">
-                    <a href={% url "admin:core_scrumentry_change" entry.id %} class="far fa-edit"></a>
+                    <a href="{% url 'admin:core_scrumentry_change' entry.id %}" class="far fa-edit"></a>
                     {{ entry.title }}
                     <span class="badge badge-light">{{ entry.final_status }}</span>
                     <span class="badge badge-light">{{ entry.time_logged_str }}</span>
@@ -16,28 +16,36 @@
             <div class="row">
                 <div class="col my-1">
                     {%if entry.ongoing_time_log_id %}
-                        <button class="btn btn-secondary" type="button" id="button-stop-{{entry.id}}">Stop timer {{ entry.ongoing_time_str }}</button>
+                        <form action="{% url 'frontend-v1-stop-timer' entry.id entry.ongoing_time_log_id %}" method="post">
+                            <input type="hidden" name="next" value="{{ request.path }}">
+                            <input class="btn btn-secondary" type="submit" id="button-stop-{{entry.id}}" value="Stop Timer ({{ entry.ongoing_time_str }})">
+                        </form>
                     {% else %}
-                        <button class="btn btn-secondary" type="button" id="button-start-{{entry.id}}">Start Timer</button>
+                        <form action="{% url 'frontend-v1-start-timer' entry.id %}" method="post">
+                            <input type="hidden" name="next" value="{{ request.path }}">
+                            <input class="btn btn-secondary" type="submit" id="button-start-{{entry.id}}"value="Start Timer">
+                        </form>
                     {% endif %}
                 </div>
-                <div class="input-group my-1 col">
-                    <input type="number" class="form-control" placeholder="Minutes" aria-label="in minutes" aria-describedby="button-minutes-{{entry.id}}">
+                <form class="input-group my-1 col" action="{% url 'frontend-v1-add-manual-time' entry.id %}" method="post">
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <input type="number" min="0" name="minutes" class="form-control" placeholder="Minutes" aria-label="in minutes" aria-describedby="button-minutes-{{entry.id}}" required>
                     <div class="input-group-append">
-                        <button class="btn btn-secondary" type="button" id="button-minutes-{{entry.id}}">Add</button>
+                        <input class="btn btn-secondary" type="submit" id="button-minutes-{{entry.id}}" value="Add">
                     </div>
-                </div>
-                <div class="input-group my-1 col-sm">
-                    <select class="custom-select" id="status-select-{{entry.id}}" aria-label="Status">
+                </form>
+                <form class="input-group my-1 col-sm" action="{% url 'frontend-v1-set-status' entry.id %}" method="post">
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <select name="status" class="custom-select" id="status-select-{{entry.id}}" aria-label="Status" required>
                         <option value="" disabled selected>Select</option>
                         {% for status in statuses %}
                             <option value={{status.0}}>{{status.1}}</option>
                         {% endfor %}
                     </select>
                     <div class="input-group-append">
-                        <button class="btn btn-secondary" type="button" id="button-status-{{entry.id}}">Set Status</button>
+                        <input class="btn btn-secondary" type="submit" id="button-status-{{entry.id}}" value="Set Status">
                     </div>
-                </div>
+                </form>
             </div>
         </div>
     {% endfor %}

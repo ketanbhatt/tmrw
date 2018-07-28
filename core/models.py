@@ -90,7 +90,7 @@ class DayEntry(CommonInfoAbstractModel):
 
             total_time_logged, ongoing_time, ongoing_time_log_id = 0, None, None
             for time_log in scrum_entry.time_logs:
-                if time_log.duration:
+                if time_log.duration is not None:
                     total_time_logged += time_log.duration
                 else:
                     now, start_time = datetime.datetime.now(), time_log.start_time
@@ -101,7 +101,7 @@ class DayEntry(CommonInfoAbstractModel):
 
             kwargs.update({
                 "time_logged_str": get_humanised_time_str(total_time_logged),
-                "ongoing_time_str": get_humanised_time_str(ongoing_time) if ongoing_time else None,
+                "ongoing_time_str": get_humanised_time_str(ongoing_time) if ongoing_time is not None else None,
                 "ongoing_time_log_id": ongoing_time_log_id
             })
 
@@ -277,6 +277,10 @@ class ScrumEntry(CommonInfoAbstractModel):
 
         return mark_safe("<span style='color:{0}'>{1}</span>".format(color, status))
 
+    @classmethod
+    def set_status(cls, scrum_entry_id, status):
+        cls.objects.filter(id=scrum_entry_id).update(final_status=status)
+
 
 class TimeLog(CommonInfoAbstractModel):
     scrum_entry = models.ForeignKey(ScrumEntry, on_delete=models.CASCADE)
@@ -306,3 +310,18 @@ class TimeLog(CommonInfoAbstractModel):
     def clean(self):
         if not any([self.start_time, self.end_time, self.duration]):
             raise ValidationError("One of start_time, end_time or duration should be updated")
+
+    @classmethod
+    def start(cls, scrum_entry_id):
+        return cls.objects.create(scrum_entry_id=scrum_entry_id, start_time=datetime.datetime.now().time())
+
+    @classmethod
+    def add_manual_time(cls, scrum_entry_id, duration):
+        return cls.objects.create(scrum_entry_id=scrum_entry_id, duration=duration)
+
+    @classmethod
+    def stop(cls, time_log_id, end_time=None):
+        time_log = cls.objects.get(id=time_log_id)
+        time_log.end_time = end_time if end_time else datetime.datetime.now().time()
+        time_log.save()
+        return time_log
