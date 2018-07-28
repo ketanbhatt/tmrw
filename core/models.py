@@ -112,6 +112,7 @@ class DayEntry(CommonInfoAbstractModel):
             "day_time_logged_str": get_humanised_time_str(day_entry.time_logged or 0),
             "scrum_entries": scrum_entries,
             "statuses": ScrumEntry.FINAL_STATUS_CHOICES,
+            "day_entry_id": day_entry_id
         }
 
 

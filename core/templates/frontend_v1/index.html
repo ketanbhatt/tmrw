@@ -1,10 +1,15 @@
 {% extends "frontend_v1/base.html" %}
 
+{% block head %}<title>{{ record_date_str }}</title>{% endblock %}
+
 {% block body %}
 
 <div class="container clearfix mb-1">
     <h4>
-        <span class="float-left">Day Entry: {{ record_date_str }}</span>
+        <span class="float-left">
+            <a href="{% url 'admin:core_dayentry_change' day_entry_id %}" class="far fa-edit"></a>
+            <span>Day Entry: {{ record_date_str }}</span>
+        </span>
         <span class="badge badge-secondary float-right">{{ day_time_logged_str }}</span>
     </h4>
 </div>

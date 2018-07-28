@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.shortcuts import redirect
+from django.urls import reverse
 from nested_admin.nested import NestedStackedInline, NestedModelAdmin, NestedTabularInline
 from suit.admin import SortableStackedInline
 
@@ -134,6 +136,9 @@ class DayEntryAdmin(CommonAdminMixin, NestedModelAdmin):
     def time_logged_str(self, obj):
         return get_humanised_time_str(obj.time_logged)
     time_logged_str.short_description = "Time Logged"
+
+    def response_post_save_add(self, request, obj):
+        return redirect(reverse('frontend-v1-change-view', args=[obj.id]))
 
 
 class TagAdmin(CommonAdminMixin, admin.ModelAdmin):
