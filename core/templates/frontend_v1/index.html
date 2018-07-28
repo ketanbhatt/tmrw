@@ -1,0 +1,15 @@
+{% extends "frontend_v1/base.html" %}
+
+{% block body %}
+
+<div class="container clearfix mb-1">
+    <h4>
+        <span class="float-left">Day Entry: {{ record_date_str }}</span>
+        <span class="badge badge-secondary float-right">{{ day_time_logged_str }}</span>
+    </h4>
+</div>
+<div class="scrum-entries container my-3">
+    {% include "frontend_v1/scrum_entries.html" %}
+</div>
+
+{% endblock %}

@@ -68,7 +68,55 @@ class DayEntry(CommonInfoAbstractModel):
         return total_time, tagged_time
 
     @classmethod
-    def get_full_context(cls, day_entry_id):
+    def get_scrum_entries(cls, day_entry_id):
+        scrum_entries = []
+        day_entry = cls.objects.prefetch_related(
+            Prefetch(
+                'scrumentry_set',
+                queryset=ScrumEntry.active_qs().order_by('order').prefetch_related(
+                    Prefetch('timelog_set', TimeLog.active_qs(), to_attr='time_logs'),
+                ),
+                to_attr='scrum_entries'
+            )
+        ).get(id=day_entry_id)
+
+        for scrum_entry in day_entry.scrum_entries:
+            kwargs = {
+                "id": scrum_entry.id,
+                "title": scrum_entry.title,
+                "final_status": ScrumEntry.FINAL_STATUS_CHOICES_DICT[scrum_entry.final_status],
+                "final_status_classes": ScrumEntry.FINAL_STATUS_BOOTSTRAP_CLASSES[scrum_entry.final_status],
+            }
+
+            total_time_logged, ongoing_time, ongoing_time_log_id = 0, None, None
+            for time_log in scrum_entry.time_logs:
+                if time_log.duration is not None:
+                    total_time_logged += time_log.duration
+                else:
+                    now, start_time = datetime.datetime.now(), time_log.start_time
+                    ongoing_time = (now - now.replace(
+                        hour=start_time.hour, minute=start_time.minute, second=start_time.second
+                    )).total_seconds() / 60
+                    ongoing_time_log_id = time_log.id
+
+            kwargs.update({
+                "time_logged_str": get_humanised_time_str(total_time_logged),
+                "ongoing_time_str": get_humanised_time_str(ongoing_time) if ongoing_time is not None else None,
+                "ongoing_time_log_id": ongoing_time_log_id
+            })
+
+            scrum_entries.append(kwargs)
+
+        return {
+            "record_date_str": "{}".format(day_entry.record_date),
+            "day_time_logged_str": get_humanised_time_str(day_entry.time_logged or 0),
+            "scrum_entries": scrum_entries,
+            "statuses": ScrumEntry.FINAL_STATUS_CHOICES,
+        }
+
+
+    @classmethod
+    def get_full_context_for_html_render(cls, day_entry_id):
         day_entry = cls.objects.prefetch_related(
             'tags',
             Prefetch(
@@ -203,6 +251,13 @@ class ScrumEntry(CommonInfoAbstractModel):
         None: ''
     }
 
+    FINAL_STATUS_BOOTSTRAP_CLASSES = {
+        FINAL_STATUS_COMPLETED: 'list-group-item-success',
+        FINAL_STATUS_INCOMPLETE: 'list-group-item-danger',
+        FINAL_STATUS_DROPPED: 'list-group-item-warning',
+        None: ''
+    }
+
     day_entry = models.ForeignKey(DayEntry, on_delete=models.CASCADE)
     title = models.CharField(max_length=128, help_text="What task do you have to do?")
     notes = models.TextField(null=True, blank=True)
@@ -221,6 +276,10 @@ class ScrumEntry(CommonInfoAbstractModel):
         color = ScrumEntry.FINAL_STATUS_COLORS[self.final_status]
 
         return mark_safe("<span style='color:{0}'>{1}</span>".format(color, status))
+
+    @classmethod
+    def set_status(cls, scrum_entry_id, status):
+        cls.objects.filter(id=scrum_entry_id).update(final_status=status)
 
 
 class TimeLog(CommonInfoAbstractModel):
@@ -251,3 +310,18 @@ class TimeLog(CommonInfoAbstractModel):
     def clean(self):
         if not any([self.start_time, self.end_time, self.duration]):
             raise ValidationError("One of start_time, end_time or duration should be updated")
+
+    @classmethod
+    def start(cls, scrum_entry_id):
+        return cls.objects.create(scrum_entry_id=scrum_entry_id, start_time=datetime.datetime.now().time())
+
+    @classmethod
+    def add_manual_time(cls, scrum_entry_id, duration):
+        return cls.objects.create(scrum_entry_id=scrum_entry_id, duration=duration)
+
+    @classmethod
+    def stop(cls, time_log_id, end_time=None):
+        time_log = cls.objects.get(id=time_log_id)
+        time_log.end_time = end_time if end_time else datetime.datetime.now().time()
+        time_log.save()
+        return time_log

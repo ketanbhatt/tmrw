@@ -1,0 +1,52 @@
+<div class="list-group">
+    {% for entry in scrum_entries %}
+        <div 
+            class="list-group-item list-group-item-action flex-column align-items-start
+            {% if entry.ongoing_time_log_id %} list-group-item-primary {% endif %}
+            {{ entry.final_status_classes }}"
+        >
+            <div class="d-flex w-100">
+                <h5 class="mb-1">
+                    <a href="{% url 'admin:core_scrumentry_change' entry.id %}" class="far fa-edit"></a>
+                    {{ entry.title }}
+                    <span class="badge badge-light">{{ entry.final_status }}</span>
+                    <span class="badge badge-light">{{ entry.time_logged_str }}</span>
+                </h5>
+            </div>
+            <div class="row">
+                <div class="col my-1">
+                    {%if entry.ongoing_time_log_id %}
+                        <form action="{% url 'frontend-v1-stop-timer' entry.id entry.ongoing_time_log_id %}" method="post">
+                            <input type="hidden" name="next" value="{{ request.path }}">
+                            <input class="btn btn-secondary" type="submit" id="button-stop-{{entry.id}}" value="Stop Timer ({{ entry.ongoing_time_str }})">
+                        </form>
+                    {% else %}
+                        <form action="{% url 'frontend-v1-start-timer' entry.id %}" method="post">
+                            <input type="hidden" name="next" value="{{ request.path }}">
+                            <input class="btn btn-secondary" type="submit" id="button-start-{{entry.id}}"value="Start Timer">
+                        </form>
+                    {% endif %}
+                </div>
+                <form class="input-group my-1 col" action="{% url 'frontend-v1-add-manual-time' entry.id %}" method="post">
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <input type="number" min="0" name="minutes" class="form-control" placeholder="Minutes" aria-label="in minutes" aria-describedby="button-minutes-{{entry.id}}" required>
+                    <div class="input-group-append">
+                        <input class="btn btn-secondary" type="submit" id="button-minutes-{{entry.id}}" value="Add">
+                    </div>
+                </form>
+                <form class="input-group my-1 col-sm" action="{% url 'frontend-v1-set-status' entry.id %}" method="post">
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <select name="status" class="custom-select" id="status-select-{{entry.id}}" aria-label="Status" required>
+                        <option value="" disabled selected>Select</option>
+                        {% for status in statuses %}
+                            <option value={{status.0}}>{{status.1}}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="input-group-append">
+                        <input class="btn btn-secondary" type="submit" id="button-status-{{entry.id}}" value="Set Status">
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endfor %}
+</div>
