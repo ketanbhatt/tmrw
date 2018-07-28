@@ -68,7 +68,54 @@ class DayEntry(CommonInfoAbstractModel):
         return total_time, tagged_time
 
     @classmethod
-    def get_full_context(cls, day_entry_id):
+    def get_scrum_entries(cls, day_entry_id):
+        scrum_entries = []
+        day_entry = cls.objects.prefetch_related(
+            Prefetch(
+                'scrumentry_set',
+                queryset=ScrumEntry.active_qs().order_by('order').prefetch_related(
+                    Prefetch('timelog_set', TimeLog.active_qs(), to_attr='time_logs'),
+                ),
+                to_attr='scrum_entries'
+            )
+        ).get(id=day_entry_id)
+
+        for scrum_entry in day_entry.scrum_entries:
+            kwargs = {
+                "id": scrum_entry.id,
+                "title": scrum_entry.title,
+                "final_status": ScrumEntry.FINAL_STATUS_CHOICES_DICT[scrum_entry.final_status],
+            }
+
+            total_time_logged, ongoing_time, ongoing_time_log_id = 0, None, None
+            for time_log in scrum_entry.time_logs:
+                if time_log.duration:
+                    total_time_logged += time_log.duration
+                else:
+                    now, start_time = datetime.datetime.now(), time_log.start_time
+                    ongoing_time = (now - now.replace(
+                        hour=start_time.hour, minute=start_time.minute, second=start_time.second
+                    )).total_seconds() / 60
+                    ongoing_time_log_id = time_log.id
+
+            kwargs.update({
+                "time_logged_str": get_humanised_time_str(total_time_logged),
+                "ongoing_time_str": get_humanised_time_str(ongoing_time) if ongoing_time else None,
+                "ongoing_time_log_id": ongoing_time_log_id
+            })
+
+            scrum_entries.append(kwargs)
+
+        return {
+            "record_date_str": "{}".format(day_entry.record_date),
+            "day_time_logged_str": get_humanised_time_str(day_entry.time_logged or 0),
+            "scrum_entries": scrum_entries,
+            "statuses": ScrumEntry.FINAL_STATUS_CHOICES,
+        }
+
+
+    @classmethod
+    def get_full_context_for_html_render(cls, day_entry_id):
         day_entry = cls.objects.prefetch_related(
             'tags',
             Prefetch(

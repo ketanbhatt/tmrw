@@ -1,0 +1,41 @@
+<div class="list-group">
+    {% for entry in scrum_entries %}
+        <div 
+            class="list-group-item list-group-item-action flex-column align-items-start
+            {% if entry.ongoing_time_log_id %} list-group-item-primary {% endif %}"
+        >
+            <div class="d-flex w-100">
+                <h5 class="mb-1">
+                    {{ entry.title }}
+                    <span class="badge badge-success">{{ entry.final_status }}</span>
+                    <span class="badge badge-light">{{ entry.time_logged_str }}</span>
+                </h5>
+            </div>
+            <div class="row">
+                <div class="col my-1">
+                    {%if entry.ongoing_time_log_id %}
+                        <button class="btn btn-secondary" type="button" id="button-stop-{{entry.id}}">Stop timer {{ entry.ongoing_time_str }}</button>
+                    {% else %}
+                        <button class="btn btn-secondary" type="button" id="button-start-{{entry.id}}">Start Timer</button>
+                    {% endif %}
+                </div>
+                <div class="input-group my-1 col">
+                    <input type="number" class="form-control" placeholder="Minutes" aria-label="in minutes" aria-describedby="button-minutes-{{entry.id}}">
+                    <div class="input-group-append">
+                        <button class="btn btn-secondary" type="button" id="button-minutes-{{entry.id}}">Add</button>
+                    </div>
+                </div>
+                <div class="input-group my-1 col-sm">
+                    <select class="custom-select" id="status-select-{{entry.id}}" aria-label="Status">
+                        {% for status in statuses %}
+                            <option value={{status.0}}>{{status.1}}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="input-group-append">
+                        <button class="btn btn-secondary" type="button" id="button-status-{{entry.id}}">Set Status</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>

@@ -5,5 +5,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('select2/', include('django_select2.urls')),
     path('nested_admin/', include('nested_admin.urls')),
-    path('core/', include('core.urls')),
+    path('core/', include('core.urls.urls_base')),
+    path('v1/', include('core.urls.urls_frontend_v1')),
 ]
